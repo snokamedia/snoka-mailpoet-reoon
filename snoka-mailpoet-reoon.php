@@ -58,7 +58,16 @@ function mailpoet_reoon_settings_init() {
 
     // Registering the setting for rejected email domains
     register_setting('mailpoet_reoon', 'mailpoet_reoon_rejected_domains');
+    register_setting('mailpoet_reoon', 'mailpoet_reoon_mode');
 
+    add_settings_field(
+        'mailpoet_reoon_mode',
+        'Reoon Verification Mode',
+        'mailpoet_reoon_mode_field_cb',
+        'mailpoet-reoon-settings',
+        'mailpoet_reoon_api_key_section'
+    );
+    
     // Adding a new field for rejected email domains
     add_settings_field(
         'mailpoet_reoon_rejected_domains',
@@ -104,9 +113,10 @@ add_action('admin_init', 'mailpoet_reoon_settings_init');
 
 function mailpoet_reoon_rejected_domains_field_cb() {
     $setting = get_option('mailpoet_reoon_rejected_domains');
-    echo '<input type="text" name="mailpoet_reoon_rejected_domains" value="' . esc_attr($setting) . '">';
+    echo '<textarea name="mailpoet_reoon_rejected_domains">' . esc_textarea($setting) . '</textarea>';
     echo '<p class="description">Enter a comma-separated list of email domains to reject (e.g., "example.com, spam.com").</p>';
 }
+
 
 function mailpoet_reoon_recaptcha_site_key_field_cb() {
     $setting = get_option('mailpoet_reoon_recaptcha_site_key');
@@ -129,8 +139,29 @@ function mailpoet_reoon_api_key_field_cb() {
     <?php
 }
 
+function mailpoet_reoon_mode_field_cb() {
+    // Fetch the setting from the database or default to 'quick' if not set
+    $setting = get_option('mailpoet_reoon_mode', 'quick');
+    ?>
+    <select name="mailpoet_reoon_mode">
+        <option value="quick" <?php selected($setting, 'quick'); ?>>Quick</option>
+        <option value="power" <?php selected($setting, 'power'); ?>>Power</option>
+    </select>
+    <?php
+}
 
-function render_mailpoet_reoon_subscription_form() {
+
+function generate_random_string($length = 10) {
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[rand(0, $charactersLength - 1)];
+    }
+    return $randomString;
+}
+
+function render_mailpoet_reoon_subscription_form($atts) {
     ob_start();    
 
     // Check if MailPoet is active
@@ -143,25 +174,33 @@ function render_mailpoet_reoon_subscription_form() {
         $subscriber_form_fields = $mailpoet_api->getSubscriberFields();
 
         $recaptcha_site_key = get_option('mailpoet_reoon_recaptcha_site_key');
-
+        $randomString = generate_random_string(10); 
         // Start form
         echo '<form id="mailpoet_reoon_form" action="' . esc_url($_SERVER['REQUEST_URI']) . '" method="post">';
 
         // Add form fields
         foreach ($subscriber_form_fields as $field) {
-            if ($field['type'] === 'text' or $field['type'] === 'email') {
+            if ($field['id'] === 'email') {
                 echo '<label for="' . esc_attr($field['id']) . '">' . esc_html($field['name']) . '</label>';
-                echo '<input type="' . esc_attr($field['type']) . '" name="' . esc_attr($field['id']) . '" id="' . esc_attr($field['id']) . '" value="' . (isset($_POST[$field['id']]) ? esc_attr($_POST[$field['id']]) : '') . '"><br>';
+                echo '<input type="email" name="email" id="email" value="">';
+                echo '<input type="' . esc_attr($field['type']) . '" name="' . $randomString . '" id="' . $randomString . '" value="' . (isset($_POST[$field['id']]) ? esc_attr($_POST[$field['id']]) : '') . '"><br>';
             }
         }
-
-        // Add list selection
-        echo '<label for="mailpoet_list">Subscribe to:</label>';
-        echo '<select name="list_ids[]" id="mailpoet_list" multiple>';
-        foreach ($lists as $list) {
-            echo '<option value="' . esc_attr($list['id']) . '">' . esc_html($list['name']) . '</option>';
+        // Extract shortcode attributes
+        $attributes = shortcode_atts(array('list_id' => ''), $atts);
+        // Check if specific list ID is provided
+        if (!empty($attributes['list_id'])) {
+            // Hidden field for specific list ID
+            echo '<input type="hidden" name="list_ids[]" value="' . esc_attr($attributes['list_id']) . '">';
+        } else {
+            // Add list selection dropdown
+            echo '<label for="mailpoet_list">Subscribe to:</label>';
+            echo '<select name="list_ids[]" id="mailpoet_list" multiple>';
+            foreach ($lists as $list) {
+                echo '<option value="' . esc_attr($list['id']) . '">' . esc_html($list['name']) . '</option>';
+            }
+            echo '</select><br>';
         }
-        echo '</select><br>';
 
         // Add nonce field for security
         wp_nonce_field('mailpoet_reoon_form_action', 'mailpoet_reoon_form_nonce', true, true);
@@ -174,7 +213,6 @@ function render_mailpoet_reoon_subscription_form() {
 
         // End form
         echo '</form>';
-
 
         // Add a div for displaying messages
         echo '<div id="mailpoet_reoon_message"></div>';
@@ -193,32 +231,34 @@ function process_mailpoet_reoon_form_submission() {
         return;
     }
 
-    if (!defined('DOING_AJAX') || !DOING_AJAX) {
-        error_log('Not an AJAX call');
-        return;
-    }
+    // if (!defined('DOING_AJAX') || !DOING_AJAX) {
+    //     error_log('Not an AJAX call');
+    //     return;
+    // }
 
-    // Log the entire $_POST array for debugging
-    error_log('POST Data: ' . print_r($_POST, true));
+    // // Log the entire $_POST array for debugging
+    // error_log('POST Data: ' . print_r($_POST, true));
 
-    // Log the received nonce value
-    if (isset($_POST['mailpoet_reoon_form_nonce'])) {
-        error_log('Received nonce: ' . $_POST['mailpoet_reoon_form_nonce']);
-    } else {
-        error_log('Nonce not set in POST data');
-    }
+    // // Log the received nonce value
+    // if (isset($_POST['mailpoet_reoon_form_nonce'])) {
+    //     error_log('Received nonce: ' . $_POST['mailpoet_reoon_form_nonce']);
+    // } else {
+    //     error_log('Nonce not set in POST data');
+    // }
 
     // Verify nonce
     if (!isset($_POST['mailpoet_reoon_form_nonce']) || !wp_verify_nonce($_POST['mailpoet_reoon_form_nonce'], 'mailpoet_reoon_form_action')) {
-        error_log('Nonce verification failed');
-        wp_send_json_error(array('message' => 'Nonce verification failed.'));
+        // error_log('Nonce verification failed');
+        wp_send_json_error(array('message' => 'Verification failed.'));
         wp_die();
     }
+    // Convert $_POST to an indexed array
+    $post_values = array_values($_POST);
 
     // Ensure email field is set and not empty
-    $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+    $email = isset($post_values[1]) ? sanitize_email($post_values[1]) : '';
     if (empty($email)) {
-        error_log('Email field is empty');
+        // error_log('Email field is empty');
         wp_send_json_error(array('message' => 'Email field is required.'));
         wp_die();
     } else {
@@ -244,11 +284,12 @@ function process_mailpoet_reoon_form_submission() {
         }
 
 
-        // Ensure email field is set and not empty
-        $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
-        if (empty($email)) {
-            error_log('Email field is empty');
-            wp_send_json_error(array('message' => 'Email field is required.'));
+        // If honeypot filled out die spam
+        if ( isset($_POST['email']) && !empty($_POST['email'])) {
+            // Log for debugging
+            error_log('Honeypot field filled');
+            // Send a generic error message or just die without providing any feedback
+            wp_send_json_error(array('message' => 'An error occurred.'));
             wp_die();
         }
 
@@ -257,34 +298,48 @@ function process_mailpoet_reoon_form_submission() {
         $rejected_domains = array_map('trim', $rejected_domains); // Trim whitespace
         $email_domain = substr(strrchr($email, "@"), 1);
         if (in_array($email_domain, $rejected_domains)) {
-            wp_send_json_error(array('message' => 'Email domain is not allowed.'));
+            error_log('Rejected domain attempt: ' . $email_domain);
+            wp_send_json_error(array('message' => 'An error occurred.'));
             wp_die();
         }
 
         // Fetch the saved Reoon API key from settings
         $reoon_api_key = get_option('mailpoet_reoon_api_key');
 
+        $reoon_mode = get_option('mailpoet_reoon_mode');
         // Validate email with Reoon API
-        $reoon_response = wp_remote_get("https://emailverifier.reoon.com/api/v1/verify?email=$email&key=$reoon_api_key&mode=quick");
-
+        $reoon_response = wp_remote_get("https://emailverifier.reoon.com/api/v1/verify?email=$email&key=$reoon_api_key&mode=$reoon_mode");
+        
         // Error handling for Reoon API call
         if (is_wp_error($reoon_response)) {
             error_log('Reoon API Call Error: ' . $reoon_response->get_error_message());
-            wp_send_json_error(array('message' => 'Error in Reoon API call: ' . $reoon_response->get_error_message()));
+            // wp_send_json_error(array('message' => 'Error in Reoon API call: ' . $reoon_response->get_error_message()));
             wp_die();
         }
         
         $body = wp_remote_retrieve_body($reoon_response);
         $data = json_decode($body, true);
 
-        // Log the entire response
-        error_log('Reoon API Full Response: ' . print_r($data, true));
+        // // Log the entire response
+        // error_log('Reoon API Full Response: ' . print_r($data, true));
         
-        if (!isset($data['status']) || $data['status'] !== 'valid') {
-            wp_send_json_error(array('message' => 'Invalid response from Reoon API.'));
+        if ($reoon_mode === 'quick' && !isset($data['status']) || $data['status'] !== 'valid') {
+            wp_send_json_error(array('message' => 'Invalid Email'));
             wp_die();
         }
-        
+
+        // Assuming $data['status'] contains the status of the email verification
+        $email_status = isset($data['status']) ? $data['status'] : '';
+
+        // Define an array of accepted statuses
+        $accepted_statuses = ['safe', 'invalid', 'catch_all', 'role_account', 'unknown'];
+
+        if ($reoon_mode === 'power' && !in_array($email_status, $accepted_statuses)) {
+            // If the status is not in the accepted list, reject it
+            // wp_send_json_error(array('message' => 'Invalid Email'));
+            wp_send_json_error(array('message' => 'Email status not accepted: ' . $email_status));
+            wp_die();
+        }
 
         // Proceed only if email is valid
         if ($data['status'] === 'valid') {
@@ -335,6 +390,8 @@ function mailpoet_reoon_enqueue_scripts() {
     if (has_shortcode(get_post()->post_content, 'mailpoet_reoon_form')) {
         // Enqueue your script
         wp_enqueue_script('mailpoet_reoon_ajax_script', plugins_url('/js/mailpoet_reoon_ajax.js', __FILE__), array('jquery'), null, true);
+        // Enqueue your stylesheet
+        wp_enqueue_style('mailpoet_reoon_css', plugins_url('/css/style.css', __FILE__));
 
         // Localize the script with new data
         wp_localize_script('mailpoet_reoon_ajax_script', 'mailpoet_reoon_ajax_object', array(
