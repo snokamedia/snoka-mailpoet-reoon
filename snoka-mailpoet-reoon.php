@@ -185,15 +185,16 @@ function render_mailpoet_reoon_subscription_form($atts) {
         
 
         echo '<form id="mailpoet_reoon_form" action="' . esc_url($_SERVER['REQUEST_URI']) . '" method="post">';
-
+        echo '<div class="snoka-email-field-group">';        
         // Add form fields
         foreach ($subscriber_form_fields as $field) {
             if ($field['id'] === 'email') {
                 echo '<label for="' . esc_attr($field['id']) . '">' . esc_html($field['name']) . '</label>';
-                echo '<input type="email" name="email" id="email" placeholder="Email Address" value="">';
-                echo '<input type="' . esc_attr($field['type']) . '" name="' . $randomString . '"placeholder="Email Address" id="snoka-email-verify-input" value="' . (isset($_POST[$field['id']]) ? esc_attr($_POST[$field['id']]) : '') . '" required>';
+                echo '<input type="email" name="email" id="email" placeholder="Email Address" autocomplete="off" value="">';
+                echo '<input type="' . esc_attr($field['type']) . '" name="' . $randomString . '"placeholder="Email Address" id="snoka-email-verify-input" value="' . (isset($_POST[$field['id']]) ? esc_attr($_POST[$field['id']]) : '') . '" required autocomplete="email">';
             }
         }
+        echo '<div id="snoka-email-invalid-msg">Invalid Email</div></div>';
         // Extract shortcode attributes
         $attributes = shortcode_atts(array('list_id' => ''), $atts);
         // Check if specific list ID is provided

@@ -25,8 +25,19 @@ div#mailpoet_reoon_message {
 }
 #mailpoet_reoon_form input {
     width: 304px;
+}
+#snoka-email-field-group {
     margin-bottom: 10px;
 }
+
+#mailpoet_reoon_form input[valid] {
+    border-color: green;
+}
+
+#mailpoet_reoon_form input[invalid] {
+    border-color: red;
+}
+
 input#mailpoet_reoon_submit {
     margin-top: 10px;
 }
@@ -35,4 +46,8 @@ input#mailpoet_reoon_submit:disabled {
     color: #ffffff;
     background-color: #55555e70;
     cursor: not-allowed;
+}
+div#snoka-email-invalid-msg {
+    color: red;
+    display: none;
 }

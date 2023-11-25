@@ -2,30 +2,37 @@ document.addEventListener('DOMContentLoaded', function() {
     var submitButton = document.getElementById('mailpoet_reoon_submit');
     var messageDiv = document.getElementById('mailpoet_reoon_message');
     var form = document.getElementById('mailpoet_reoon_form'); // Moved for easier access
+    var invalidEmail = document.getElementsByClassName('snoka-email-invalid-msg');   
+
     var recaptchaWidgetId;
     var isRecaptchaValid = false;
     var isEmailValid = false;
 
+    invalidEmail.style.display = 'none';
+
     var emailInput = document.getElementById('snoka-email-verify-input'); // Email input field
 
     // Regular expression for simple email validation
-    var emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    var emailRegex = /^[a-zA-Z0-9!#$%&'*+\/=?^_`{|}~.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
 
     // Function to validate email and update button state
     function validateEmail() {
         isEmailValid = emailRegex.test(emailInput.value);
         if (isEmailValid) {
-            emailInput.classList.remove('invalid');
-            emailInput.classList.add('valid');
+            emailInput.setAttribute('valid', '');
+            emailInput.removeAttribute('invalid');
+            invalidEmail.style.display = 'none';
         } else {
-            emailInput.classList.remove('valid');
-            emailInput.classList.add('invalid');
+            emailInput.setAttribute('invalid', '');
+            emailInput.removeAttribute('valid');
+            invalidEmail.style.display = 'block';
         }
         updateSubmitButtonState();
     }
 
     // Event listener for email input
     emailInput.addEventListener('input', validateEmail);
+    form.style.display = 'none'; // Hide the form
 
 
     // Initially disable the submit button
