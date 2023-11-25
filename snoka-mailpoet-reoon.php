@@ -318,84 +318,80 @@ function process_mailpoet_reoon_form_submission() {
 
         $reoon_mode = get_option('mailpoet_reoon_mode');
         error_log('Reoon mode: ' . $reoon_mode);
-        $args = array(
-            'timeout' => 15 // Timeout in seconds, adjust as needed
-        );
-        // Validate email with Reoon API
-        $reoon_response = wp_remote_get("https://emailverifier.reoon.com/api/v1/verify?email=$email&key=$reoon_api_key&mode=$reoon_mode", $args);
-        
-        // Error handling for Reoon API call
-        if (is_wp_error($reoon_response)) {
-            error_log('Reoon API Call Error: ' . $reoon_response->get_error_message());
-            // wp_send_json_error(array('message' => 'Error in Reoon API call: ' . $reoon_response->get_error_message()));
-            wp_die();
-        }
-        
-        $body = wp_remote_retrieve_body($reoon_response);
-        $data = json_decode($body, true);
 
-        // Log the entire response
-        error_log('Reoon API Full Response: ' . print_r($data, true));
-        
+        // Get MailPoet API instance
+        $mailpoet_api = \MailPoet\API\API::MP('v1');
 
-        // Assuming $data['status'] contains the status of the email verification
-        $email_status = isset($data['status']) ? $data['status'] : '';
-        error_log('Reoon mode: ' . $email_status);
-        // Define an array of accepted statuses
-        $accepted_statuses = ['valid', 'safe', 'catch_all', 'role_account', 'unknown'];
-
-        if ($reoon_mode === 'quick') {
-            // Logic specific to 'quick' mode
-            if (!in_array($email_status, $accepted_statuses)) {
-                wp_send_json_error(array('message' => 'Email is invalid.'));
-                wp_die();
-            }
-        } elseif ($reoon_mode === 'power') {
-            // Logic specific to 'power' mode
-            if (!in_array($email_status, $accepted_statuses)) {
-                wp_send_json_error(array('message' => 'Email is invalid.'));
-                wp_die();
+        // Prepare subscriber data
+        $subscriber = ['email' => $email];
+        $subscriber_form_fields = $mailpoet_api->getSubscriberFields();
+        foreach ($subscriber_form_fields as $field) {
+            if (isset($_POST[$field['id']]) && $field['id'] !== 'email') {
+                $subscriber[$field['id']] = $_POST[$field['id']];
             }
         }
-        // Proceed only if email is valid
-        if (in_array($email_status, $accepted_statuses)){
-            // Get MailPoet API instance
-            $mailpoet_api = \MailPoet\API\API::MP('v1');
+        $list_ids = isset($_POST['list_ids']) ? $_POST['list_ids'] : [];
 
-            // Prepare subscriber data
-            $subscriber = ['email' => $email];
-            $subscriber_form_fields = $mailpoet_api->getSubscriberFields();
-            foreach ($subscriber_form_fields as $field) {
-                if (isset($_POST[$field['id']]) && $field['id'] !== 'email') {
-                    $subscriber[$field['id']] = $_POST[$field['id']];
+        // Check if the subscriber already exists
+        try {
+            $get_subscriber = $mailpoet_api->getSubscriber($email);
+        } catch (\Exception $e) {
+            $get_subscriber = false;
+        }
+
+        try {
+            if (!$get_subscriber) {
+                // Subscriber does not exist, check email with Reoon API if it's a new subscriber
+                // Validate email with Reoon API
+                $args = array(
+                    'timeout' => 15 // Timeout in seconds, adjust as needed
+                );
+                $reoon_response = wp_remote_get("https://emailverifier.reoon.com/api/v1/verify?email=$email&key=$reoon_api_key&mode=$reoon_mode", $args);
+
+                // Error handling for Reoon API call
+                if (is_wp_error($reoon_response)) {
+                    error_log('Reoon API Call Error: ' . $reoon_response->get_error_message());
+                    wp_die();
                 }
-            }
-            $list_ids = isset($_POST['list_ids']) ? $_POST['list_ids'] : [];
 
-            // Add or update subscriber in MailPoet
-            try {
-                $get_subscriber = $mailpoet_api->getSubscriber($email);
-            } catch (\Exception $e) {
-                $get_subscriber = false;
-            }
+                $body = wp_remote_retrieve_body($reoon_response);
+                $data = json_decode($body, true);
 
-            try {
-                if (!$get_subscriber) {
+                // Log the entire response
+                error_log('Reoon API Full Response: ' . print_r($data, true));
+
+                // Assuming $data['status'] contains the status of the email verification
+                $email_status = isset($data['status']) ? $data['status'] : '';
+                error_log('Reoon mode: ' . $email_status);
+
+                // Define an array of accepted statuses
+                $accepted_statuses = ['valid', 'safe', 'catch_all', 'role_account', 'unknown'];
+
+                if ($reoon_mode === 'quick' || $reoon_mode === 'power') {
+                    // Logic for 'quick' or 'power' mode
+                    if (!in_array($email_status, $accepted_statuses)) {
+                        wp_send_json_error(array('message' => 'Email is invalid.'));
+                        wp_die();
+                    }
+                }
+
+                // Proceed only if email is valid
+                if (in_array($email_status, $accepted_statuses)) {
                     // Add new subscriber
                     $mailpoet_api->addSubscriber($subscriber, $list_ids);
                     wp_send_json_success(array('message' => 'Subscription successful. Check your email to confirm.'));
                 } else {
-                    // Update existing subscriber
-                    $mailpoet_api->subscribeToLists($email, $list_ids);
-                    wp_send_json_success(array('message' => 'You are already subscribed.'));
+                    wp_send_json_error(array('message' => 'Email is invalid.'));
                 }
-            } catch (\Exception $e) {
-                $error_message = $e->getMessage();
-                wp_send_json_error(array('message' => $error_message));
-                wp_die(); // Terminate AJAX request
+            } else {
+                // Subscriber already exists, update existing subscriber
+                $mailpoet_api->subscribeToLists($email, $list_ids);
+                wp_send_json_success(array('message' => 'You are already subscribed.'));
             }
-        } else {
-            wp_send_json_error(array('message' => 'Email is invalid.'));
+        } catch (\Exception $e) {
+            $error_message = $e->getMessage();
+            wp_send_json_error(array('message' => $error_message));
+            wp_die(); // Terminate AJAX request
         }
     }
 }

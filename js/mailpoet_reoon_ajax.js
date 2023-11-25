@@ -2,39 +2,67 @@ document.addEventListener('DOMContentLoaded', function() {
     var submitButton = document.getElementById('mailpoet_reoon_submit');
     var messageDiv = document.getElementById('mailpoet_reoon_message');
     var form = document.getElementById('mailpoet_reoon_form'); // Moved for easier access
-    var invalidEmail = document.getElementsByClassName('snoka-email-invalid-msg');   
+    var invalidEmail = document.getElementById('snoka-email-invalid-msg');   
 
     var recaptchaWidgetId;
     var isRecaptchaValid = false;
     var isEmailValid = false;
 
-    invalidEmail.style.display = 'none';
-
     var emailInput = document.getElementById('snoka-email-verify-input'); // Email input field
+    // Flag to track if the user has interacted with the email input
+    var hasUserInteractedWithEmailInput = false;
 
     // Regular expression for simple email validation
     var emailRegex = /^[a-zA-Z0-9!#$%&'*+\/=?^_`{|}~.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
-
+    invalidEmail.style.display = 'none'; 
     // Function to validate email and update button state
     function validateEmail() {
         isEmailValid = emailRegex.test(emailInput.value);
         if (isEmailValid) {
             emailInput.setAttribute('valid', '');
             emailInput.removeAttribute('invalid');
-            invalidEmail.style.display = 'none';
         } else {
             emailInput.setAttribute('invalid', '');
             emailInput.removeAttribute('valid');
-            invalidEmail.style.display = 'block';
         }
+
+        // Only show the invalidEmail message if the user has interacted with the input
+        if (hasUserInteractedWithEmailInput) {
+            if (!isEmailValid) {
+                invalidEmail.style.display = 'block'; // Show the invalidEmail element if email is invalid
+            } else {
+                invalidEmail.style.display = 'none'; // Hide the invalidEmail element if email is valid
+            }
+        }
+
+
         updateSubmitButtonState();
     }
 
     // Event listener for email input
     emailInput.addEventListener('input', validateEmail);
-    form.style.display = 'none'; // Hide the form
 
+    // Event listener for email input
+    emailInput.addEventListener('focusout', function() {
+        hasUserInteractedWithEmailInput = true; // Set the flag when the user interacts with the input
+        validateEmail();
+    });
 
+    // Event listener for focus on email input
+    emailInput.addEventListener('focus', function() {
+        // Only show the invalidEmail message if the user has interacted with the input
+        if (hasUserInteractedWithEmailInput && !isEmailValid) {
+            invalidEmail.style.display = 'block'; // Show the invalidEmail element when blurred if email is invalid
+        }
+    });
+
+    // Event listener for blur on email input
+    emailInput.addEventListener('blur', function() {
+        // Only show the invalidEmail message if the user has interacted with the input
+        if (hasUserInteractedWithEmailInput && !isEmailValid) {
+            invalidEmail.style.display = 'block'; // Show the invalidEmail element when blurred if email is invalid
+        }
+    });
     // Initially disable the submit button
     submitButton.disabled = true;
 
