@@ -23,3 +23,16 @@
 div#mailpoet_reoon_message {
     font-weight: 600;
 }
+#mailpoet_reoon_form input {
+    width: 304px;
+    margin-bottom: 10px;
+}
+input#mailpoet_reoon_submit {
+    margin-top: 10px;
+}
+
+input#mailpoet_reoon_submit:disabled {
+    color: #ffffff;
+    background-color: #55555e70;
+    cursor: not-allowed;
+}

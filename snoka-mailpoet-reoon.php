@@ -176,14 +176,22 @@ function render_mailpoet_reoon_subscription_form($atts) {
         $recaptcha_site_key = get_option('mailpoet_reoon_recaptcha_site_key');
         $randomString = generate_random_string(10); 
         // Start form
+        echo '<div id="snoka-newsletter-sub" class="snoka-modal"><button class="snoka-modal-close" data-target="snoka-newsletter-sub"><svg viewBox="0 0 512 512" aria-hidden="true" role="img" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1em" height="1em">
+        <path d="M71.029 71.029c9.373-9.372 24.569-9.372 33.942 0L256 222.059l151.029-151.03c9.373-9.372 24.569-9.372 33.942 0 9.372 9.373 9.372 24.569 0 33.942L289.941 256l151.03 151.029c9.372 9.373 9.372 24.569 0 33.942-9.373 9.372-24.569 9.372-33.942 0L256 289.941l-151.029 151.03c-9.373 9.372-24.569 9.372-33.942 0-9.372-9.373-9.372-24.569 0-33.942L222.059 256 71.029 104.971c-9.372-9.373-9.372-24.569 0-33.942z"></path>
+    </svg></button><div class="snoka-modal-content">'; 
+   
+        echo '<h4 class="wp-block-heading">Subscribe to Edge Express</h4>';
+        echo '<p><strong>Stay connected to the pulse of the north, subscribe to our daily newsletter.</strong></p>';
+        
+
         echo '<form id="mailpoet_reoon_form" action="' . esc_url($_SERVER['REQUEST_URI']) . '" method="post">';
 
         // Add form fields
         foreach ($subscriber_form_fields as $field) {
             if ($field['id'] === 'email') {
                 echo '<label for="' . esc_attr($field['id']) . '">' . esc_html($field['name']) . '</label>';
-                echo '<input type="email" name="email" id="email" value="">';
-                echo '<input type="' . esc_attr($field['type']) . '" name="' . $randomString . '" id="' . $randomString . '" value="' . (isset($_POST[$field['id']]) ? esc_attr($_POST[$field['id']]) : '') . '"><br>';
+                echo '<input type="email" name="email" id="email" placeholder="Email Address" value="">';
+                echo '<input type="' . esc_attr($field['type']) . '" name="' . $randomString . '"placeholder="Email Address" id="snoka-email-verify-input" value="' . (isset($_POST[$field['id']]) ? esc_attr($_POST[$field['id']]) : '') . '" required>';
             }
         }
         // Extract shortcode attributes
@@ -205,8 +213,7 @@ function render_mailpoet_reoon_subscription_form($atts) {
         // Add nonce field for security
         wp_nonce_field('mailpoet_reoon_form_action', 'mailpoet_reoon_form_nonce', true, true);
         // Add Google reCAPTCHA script and widget
-        echo '<script src="https://www.google.com/recaptcha/api.js" async defer></script>';
-        echo '<div class="g-recaptcha" id="mailpoet_reoon_recaptcha" data-sitekey="' . esc_attr($recaptcha_site_key) . '"></div>';
+        echo '<div id="mailpoet_reoon_recaptcha"></div>'; // Placeholder for reCAPTCHA
 
         // Add submit button
         echo '<input type="button" id="mailpoet_reoon_submit" value="Subscribe">';
@@ -216,6 +223,8 @@ function render_mailpoet_reoon_subscription_form($atts) {
 
         // Add a div for displaying messages
         echo '<div id="mailpoet_reoon_message"></div>';
+        echo '</div></div>';
+        echo '<button class="snoka-modal-open" data-target="snoka-newsletter-sub">Subscribe to Edge Express</button>';     
     }
 
     return ob_get_clean();
@@ -307,8 +316,12 @@ function process_mailpoet_reoon_form_submission() {
         $reoon_api_key = get_option('mailpoet_reoon_api_key');
 
         $reoon_mode = get_option('mailpoet_reoon_mode');
+        error_log('Reoon mode: ' . $reoon_mode);
+        $args = array(
+            'timeout' => 15 // Timeout in seconds, adjust as needed
+        );
         // Validate email with Reoon API
-        $reoon_response = wp_remote_get("https://emailverifier.reoon.com/api/v1/verify?email=$email&key=$reoon_api_key&mode=$reoon_mode");
+        $reoon_response = wp_remote_get("https://emailverifier.reoon.com/api/v1/verify?email=$email&key=$reoon_api_key&mode=$reoon_mode", $args);
         
         // Error handling for Reoon API call
         if (is_wp_error($reoon_response)) {
@@ -320,29 +333,31 @@ function process_mailpoet_reoon_form_submission() {
         $body = wp_remote_retrieve_body($reoon_response);
         $data = json_decode($body, true);
 
-        // // Log the entire response
-        // error_log('Reoon API Full Response: ' . print_r($data, true));
+        // Log the entire response
+        error_log('Reoon API Full Response: ' . print_r($data, true));
         
-        if ($reoon_mode === 'quick' && !isset($data['status']) || $data['status'] !== 'valid') {
-            wp_send_json_error(array('message' => 'Invalid Email'));
-            wp_die();
-        }
 
         // Assuming $data['status'] contains the status of the email verification
         $email_status = isset($data['status']) ? $data['status'] : '';
-
+        error_log('Reoon mode: ' . $email_status);
         // Define an array of accepted statuses
-        $accepted_statuses = ['safe', 'invalid', 'catch_all', 'role_account', 'unknown'];
+        $accepted_statuses = ['valid', 'safe', 'catch_all', 'role_account', 'unknown'];
 
-        if ($reoon_mode === 'power' && !in_array($email_status, $accepted_statuses)) {
-            // If the status is not in the accepted list, reject it
-            // wp_send_json_error(array('message' => 'Invalid Email'));
-            wp_send_json_error(array('message' => 'Email status not accepted: ' . $email_status));
-            wp_die();
+        if ($reoon_mode === 'quick') {
+            // Logic specific to 'quick' mode
+            if (!in_array($email_status, $accepted_statuses)) {
+                wp_send_json_error(array('message' => 'Email is invalid.'));
+                wp_die();
+            }
+        } elseif ($reoon_mode === 'power') {
+            // Logic specific to 'power' mode
+            if (!in_array($email_status, $accepted_statuses)) {
+                wp_send_json_error(array('message' => 'Email is invalid.'));
+                wp_die();
+            }
         }
-
         // Proceed only if email is valid
-        if ($data['status'] === 'valid') {
+        if (in_array($email_status, $accepted_statuses)){
             // Get MailPoet API instance
             $mailpoet_api = \MailPoet\API\API::MP('v1');
 
@@ -367,7 +382,7 @@ function process_mailpoet_reoon_form_submission() {
                 if (!$get_subscriber) {
                     // Add new subscriber
                     $mailpoet_api->addSubscriber($subscriber, $list_ids);
-                    wp_send_json_success(array('message' => 'Subscription successful.'));
+                    wp_send_json_success(array('message' => 'Subscription successful. Check your email to confirm.'));
                 } else {
                     // Update existing subscriber
                     $mailpoet_api->subscribeToLists($email, $list_ids);
@@ -392,11 +407,16 @@ function mailpoet_reoon_enqueue_scripts() {
         wp_enqueue_script('mailpoet_reoon_ajax_script', plugins_url('/js/mailpoet_reoon_ajax.js', __FILE__), array('jquery'), null, true);
         // Enqueue your stylesheet
         wp_enqueue_style('mailpoet_reoon_css', plugins_url('/css/style.css', __FILE__));
-
+        wp_enqueue_script( 'snoka_modal' );
+        wp_enqueue_style( 'snoka_modal_css' );
         // Localize the script with new data
+        // Get the reCAPTCHA site key
+        $recaptcha_site_key = get_option('mailpoet_reoon_recaptcha_site_key');
+
+        // Localize the script with new data including the reCAPTCHA site key
         wp_localize_script('mailpoet_reoon_ajax_script', 'mailpoet_reoon_ajax_object', array(
             'ajax_url' => admin_url('admin-ajax.php'),
-
+            'recaptcha_site_key' => $recaptcha_site_key, // Add this line
         ));
     }
 }
