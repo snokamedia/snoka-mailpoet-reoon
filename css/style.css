@@ -1,53 +1,61 @@
 #mailpoet_reoon_form input#email {
-    display: none;
+	display: none;
 }
 #mailpoet_reoon_form label {
-    display: none;
+	display: none;
 }
-.processing-message::after{
-    width: 40px;
-    display: inline-block;
-    height: 2px;
-    position: relative;
-    overflow: hidden;
-    content: '';
-    -webkit-mask: linear-gradient(90deg, #000 20%, #0000 0) 0/20%;
-    background: linear-gradient(#000 0 0) 0/0% no-repeat;
-    animation: loading-fames 2s infinite steps(6);
-  }
+.processing-message::after {
+	width: 40px;
+	display: inline-block;
+	height: 2px;
+	position: relative;
+	overflow: hidden;
+	content: '';
+	-webkit-mask: linear-gradient(90deg, #000 20%, #0000 0) 0 / 20%;
+	background: linear-gradient(#000 0 0) 0 / 0% no-repeat;
+	animation: loading-fames 2s infinite steps(6);
+}
 
 @keyframes loading-fames {
-    100% {background-size:120%}
+	100% {
+		background-size: 120%
+	}
 }
 
 div#mailpoet_reoon_message {
-    font-weight: 600;
+	font-weight: 600;
 }
 #mailpoet_reoon_form input {
-    width: 304px;
+	width: 304px;
 }
 .snoka-email-field-group {
-    margin-bottom: 10px;
+	margin-bottom: 10px;
 }
 
 #mailpoet_reoon_form input[valid] {
-    border-color: green;
+	border-color: green;
 }
 
 #mailpoet_reoon_form input[invalid] {
-    border-color: red;
+	border-color: red;
 }
 
 input#mailpoet_reoon_submit {
-    margin-top: 10px;
+	margin-top: 10px;
 }
 
 input#mailpoet_reoon_submit:disabled {
-    color: #ffffff;
-    background-color: #55555e70;
-    cursor: not-allowed;
+	color: #ffffff;
+	background-color: #55555e70;
+	cursor: not-allowed;
 }
 div#snoka-email-invalid-msg {
-    color: red;
-    display: none;
+	color: red;
+	display: none;
+}
+.success-message {
+	color: green
+}
+.error-message {
+	color: red;
 }
