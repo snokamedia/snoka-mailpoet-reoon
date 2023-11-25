@@ -6,7 +6,7 @@ Description: A plugin to validate email addresses using Reoon's API in MailPoet 
 Version: 1.0.0
 Author: Snoka Media
 Author URI: https://snoka.ca
-License: GPL2
+License: Proprietary
 */
 
 // Exit if accessed directly
@@ -401,9 +401,9 @@ function process_mailpoet_reoon_form_submission() {
 function mailpoet_reoon_enqueue_scripts() {
     if (has_shortcode(get_post()->post_content, 'mailpoet_reoon_form')) {
         // Enqueue your script
-        wp_enqueue_script('mailpoet_reoon_ajax_script', plugins_url('/js/mailpoet_reoon_ajax.js', __FILE__), array('jquery'), null, true);
+        wp_enqueue_script('mailpoet_reoon_ajax_script', plugins_url('/js/mailpoet_reoon_ajax.min.js', __FILE__), array('jquery'), null, true);
         // Enqueue your stylesheet
-        wp_enqueue_style('mailpoet_reoon_css', plugins_url('/css/style.css', __FILE__));
+        wp_enqueue_style('mailpoet_reoon_css', plugins_url('/css/style.min.css', __FILE__));
         wp_enqueue_script( 'snoka_modal' );
         wp_enqueue_style( 'snoka_modal_css' );
         // Localize the script with new data
